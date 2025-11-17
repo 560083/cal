@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-M">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Calendar & Notes</title>
+    
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --bg-color: #f8f9fa;
+            --font-color: #333;
+            --border-color: #dee2e6;
+            --today-color: #ffc;
+            --event-color: #28a745;
+            --recurring-weekly-color: #20c997;
+            --recurring-monthly-color: #fd7e14;
+            --recurring-yearly-color: #dc3545;
+            --note-color: #ffc107;
+            --expense-color: #6f42c1;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--font-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 5px auto 20px auto; 
+            padding: 0 20px;
+        }
+
+        /* --- Tab Navigation --- */
+        .tab-wrapper {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column; 
+        }
+
+        .tab-wrapper input { display: none; }
+
+        .tab-content-wrapper {
+            order: 1;
+            flex-grow: 1;
+        }
+        
+        .tab-nav {
+            order: 2;
+            display: flex;
+            border-top: 1px solid var(--border-color);
+            background: #fdfdfd;
+            overflow-x: auto;
+            white-space: nowrap;
+            min-height: 50px; 
+            align-items: center; 
+            justify-content: space-around;
+        }
+
+        .tab-nav label {
+            padding: 15px 10px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--secondary-color);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            text-align: center;
+            margin-bottom: -3px;
+        }
+
+        .tab-nav label:hover {
+            background: #fefefe;
+            color: #555;
+        }
+
+        #tab1:checked ~ .tab-content-wrapper #content1,
+        #tab2:checked ~ .tab-content-wrapper #content2,
+        #tab3:checked ~ .tab-content-wrapper #content3,
+        #tab4:checked ~ .tab-content-wrapper #content4,
+        #tab5:checked ~ .tab-content-wrapper #content5,
+        #tab6:checked ~ .tab-content-wrapper #content6,
+        #tab7:checked ~ .tab-content-wrapper #content7 {
+            display: block;
+        }
+
+        #tab1:checked ~ .tab-nav label[for="tab1"],
+        #tab2:checked ~ .tab-nav label[for="tab2"],
+        #tab3:checked ~ .tab-nav label[for="tab3"],
+        #tab4:checked ~ .tab-nav label[for="tab4"],
+        #tab5:checked ~ .tab-nav label[for="tab5"],
+        #tab6:checked ~ .tab-nav label[for="tab6"],
+        #tab7:checked ~ .tab-nav label[for="tab7"] {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 25px;
+        }
+        
+        /* --- Calendar Styles --- */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #monthYear { 
+            font-size: 1.75rem; 
+            font-weight: 600; 
+            text-align: center;
+            flex-shrink: 1;
+            margin: 0 10px;
+        }
+        .nav-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s ease;
+            flex-shrink: 0;
+        }
+        .nav-btn:hover { background: #0056b3; }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background-color: var(--border-color);
+            border: 1px solid var(--border-color);
+        }
+        .calendar-header-cell {
+            background: #e9ecef;
+            text-align: center;
+            font-weight: 600;
+            padding: 10px 0;
+            font-size: 0.9rem;
+        }
+        .calendar-header-cell:first-child { color: var(--recurring-yearly-color); }
+        .calendar-header-cell:last-child { color: var(--primary-color); }
+
+        .calendar-day {
+            min-height: 100px;
+            background: #fff;
+            padding: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            position: relative;
+            font-size: 0.9rem;
+            overflow: hidden;
+        }
+        .calendar-day:hover { background: #fefefe; box-shadow: 0 0 5px rgba(0, 0, 0, 0.1) inset; }
+        .calendar-day.empty { background: #f9f9f9; cursor: default; }
+        .calendar-day .day-number { font-weight: 600; font-size: 1rem; }
+        
+        .calendar-day:nth-child(7n+1) .day-number { color: var(--recurring-yearly-color); }
+        .calendar-day:nth-child(7n) .day-number { color: var(--primary-color); }
+
+        .calendar-day.today .day-number {
+            color: var(--primary-color);
+            background: var(--today-color);
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .event-marker {
+            font-size: 0.8rem;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        .event-marker::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+            flex-shrink: 0;
+        }
+        .event-marker.normal::before { background-color: var(--event-color); }
+        .event-marker.weekly::before { background-color: var(--recurring-weekly-color); }
+        .event-marker.monthly::before { background-color: var(--recurring-monthly-color); }
+        .event-marker.yearly::before { background-color: var(--recurring-yearly-color); }
+        
+        /* Search Bar */
+        .search-container { margin-top: 20px; }
+        #searchInput {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        #searchResults { margin-top: 10px; background: #fff; max-height: 200px; overflow-y: auto; }
+        .search-result-item { padding: 10px; border-bottom: 1px solid var(--border-color); cursor: pointer; }
+        .search-result-item:hover { background: #f9f9f9; }
+        .search-result-item:last-child { border-bottom: none; }
+        .search-result-item strong { color: var(--primary-color); }
+
+        /* Notice List */
+        .notice-list { list-style: none; padding: 0; }
+        .notice-item {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .notice-item-details { flex-grow: 1; flex-basis: 70%; }
+        .notice-item-details strong { font-size: 1.1rem; color: var(--primary-color); }
+        .notice-item-details .date { font-weight: 600; margin: 0 10px; }
+        .notice-item-details .recurring { font-style: italic; color: var(--secondary-color); font-size: 0.9rem; }
+        .notice-item-details .long-desc { margin-top: 5px; font-size: 0.95rem; }
+        .notice-item-actions { flex-shrink: 0; margin-left: 10px; margin-top: 5px; }
+        .notice-item-actions .btn { margin-left: 10px; }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            align-items: center;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        .modal.show { display: flex; }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            margin: 20px 0;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .modal-header h2 { margin: 0; }
+        .close-btn {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+        .modal-body .form-group { margin-bottom: 15px; }
+        .modal-body label { display: block; margin-bottom: 5px; font-weight: 600; }
+        
+        .modal-body input[type="text"],
+        .modal-body input[type="date"],
+        .modal-body input[type="number"],
+        .modal-body textarea,
+        .modal-body select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        .modal-body textarea { min-height: 100px; resize: vertical; }
+        .modal-footer { display: flex; justify-content: space-between; margin-top: 25px; }
+
+        /* Generic Button Styles */
+        .btn {
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-danger { background: var(--recurring-yearly-color); color: white; }
+        .btn-danger:hover { background: #b02a37; }
+        .btn-secondary { background: var(--secondary-color); color: white; }
+        .btn-secondary:hover { background: #545b62; }
+        .btn-warning { background: var(--note-color); color: #333; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-expense { background: var(--expense-color); color: white; }
+        .btn-expense:hover { background: #5a32a3; }
+        
+        .btn-full-text { display: inline; }
+
+        /* Data Tab */
+        .data-section { margin-bottom: 25px; }
+        .data-section h3 { border-bottom: 2px solid var(--primary-color); padding-bottom: 5px; }
+        #importFile { display: block; margin-top: 10px; padding: 5px; }
+
+        /* Notes Tab Styles */
+        #notesContainer {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .note-card {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-left: 5px solid var(--note-color);
+            border-radius: 6px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .note-card h3 { margin-top: 0; color: #555; }
+        .note-card p {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            flex-grow: 1;
+            margin-bottom: 15px;
+        }
+        .note-card-footer { text-align: right; }
+        #noteContent { min-height: 200px; }
+        
+        /* To-Do List Tab */
+        #todoListContainer {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .todo-list {
+            list-style: none;
+            padding: 0;
+            flex: 1;
+            min-width: 250px;
+        }
+        .todo-list li {
+            font-size: 1.1rem;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .todo-list li:hover {
+            background: #fdfdfd;
+        }
+        .todo-list input[type="checkbox"] {
+            margin-right: 12px;
+            width: 20px;
+            height: 20px;
+        }
+        .todo-list .todo-text {
+            flex-grow: 1;
+            cursor: pointer;
+        }
+        .todo-list .todo-text.completed {
+            text-decoration: line-through;
+            color: var(--secondary-color);
+        }
+        .todo-delete-btn {
+            background: none;
+            border: none;
+            color: var(--recurring-yearly-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 5px;
+        }
+        
+        /* Expense Tab */
+        .expense-header {
+             display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        #expenseList {
+            list-style: none;
+            padding: 0;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        /* === Expense Item List Fix (v11) === */
+        .expense-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center; 
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .expense-item span {
+            display: inline-block;
+            /* Reset margin for better control */
+            margin-right: 0; 
+        }
+        .expense-item .date { width: 100px; flex-shrink: 0; }
+        
+        /* Give more flexible space to the item description */
+        .expense-item .item { 
+            flex-grow: 1; 
+            font-weight: 600; 
+            /* Add some padding on the right to separate from amount/buttons */
+            padding-right: 15px; 
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        } 
+        
+        .expense-item .cost { 
+            width: 80px; 
+            text-align: right; 
+            flex-shrink: 0;
+            font-weight: 500;
+        }
+        
+        .expense-item-actions { 
+            width: 700px; /* Fixed width for button container */
+            text-align: right;
+            display: flex; 
+            justify-content: flex-end; 
+            /* Reduced gap between buttons for small screens */
+            gap: 5px; 
+            margin-left: 10px;
+            flex-shrink: 0; 
+            align-items: center; 
+        }
+        /* === END Expense Item List Fix === */
+
+        /* Expense Report Tab */
+        .report-section {
+            margin-bottom: 30px;
+        }
+        .report-section h3 {
+            border-bottom: 2px solid var(--expense-color);
+            padding-bottom: 5px;
+        }
+        .report-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .report-item:nth-child(even) { background: #fdfdfd; }
+        .report-item .label { font-weight: 600; }
+        .report-item .total { font-weight: 600; color: var(--expense-color); }
+
+        
+        /* ========================================
+           MOBILE-SPECIFIC STYLES
+        ======================================== */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 5px;
+                margin-top: 0;
+            }
+
+            .tab-content {
+                padding: 10px;
+            }
+
+            /* --- Mobile Buttons --- */
+            .btn-full-text {
+                display: none;
+            }
+            .btn {
+                padding: 8px 10px; /* Slightly smaller button padding */
+                font-size: 0.85rem;
+            }
+            .btn-delete {
+                padding: 8px 10px;
+            }
+            .btn-edit {
+                padding: 8px 10px;
+            }
+            /* --- Calendar --- */
+            #monthYear {
+                font-size: 1.4rem;
+                margin: 0 5px;
+            }
+            .nav-btn {
+                padding: 6px 10px;
+                font-size: 0.9rem;
+            }
+            .calendar-header-cell {
+                padding: 8px 0;
+                font-size: 0.8rem;
+            }
+            .calendar-day {
+                min-height: 80px;
+                padding: 4px;
+            }
+            .calendar-day .day-number {
+                font-size: 0.9rem;
+            }
+            .calendar-day.today .day-number {
+                width: 24px;
+                height: 24px;
+            }
+            .event-marker {
+                font-size: 0.75rem;
+                padding: 1px 0;
+                margin-top: 3px;
+            }
+            .event-marker::before {
+                width: 6px;
+                height: 6px;
+                margin-right: 4px;
+            }
+            
+            /* --- Navigation --- */
+            .tab-nav label {
+                padding: 12px 8px;
+                font-size: 0.8rem;
+            }
+            
+            /* --- Modals --- */
+            .modal-content {
+                padding: 20px 15px;
+            }
+            .modal-header {
+                padding-bottom: 8px;
+                margin-bottom: 15px;
+            }
+            .modal-header h2 { font-size: 1.3rem; }
+            
+            h2 { font-size: 1.5rem; }
+            .notice-item { padding: 10px; }
+            #notesContainer {
+                grid-template-columns: 1fr; 
+                gap: 10px;
+            }
+
+            /* --- Expense Tab Mobile Fix (v11) --- */
+            .expense-item {
+                flex-wrap: wrap; /* Allow wrapping */
+                align-items: center; /* Center items vertically */
+                padding: 8px;
+            }
+            
+            /* The Item and Date will take up the top row */
+            .expense-item .item {
+                flex-basis: 70%; /* Give item 70% of the space on the left */
+                order: 1;
+                white-space: normal; /* Allow wrapping on multiple lines if needed */
+                padding-right: 10px;
+            }
+            
+            /* The Date, Cost, and Actions will form the bottom row */
+            .expense-item .date {
+                flex-basis: 35%; /* Take up a controlled amount of space on the bottom left */
+                order: 2;
+                font-size: 0.9rem;
+                color: var(--secondary-color);
+            }
+            
+            .expense-item .cost {
+                flex-basis: 35%; /* Take up space next to the date */
+                order: 2;
+            }
+            
+            /* CRITICAL FIX: Ensure buttons stay inline and don't take up too much space */
+            .expense-item-actions {
+                width: 90px; /* Reduced width for buttons container */
+                flex-basis: 30%; /* Take up remaining space on the bottom right */
+                order: 2; 
+                margin-top: 0; 
+                justify-content: flex-end; 
+                align-items: center;
+                gap: 3px; /* Reduced gap between buttons */
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div class="tab-wrapper">
+            
+            <input type="radio" name="tabs" id="tab1" checked>
+            <input type="radio" name="tabs" id="tab2">
+            <input type="radio" name="tabs" id="tab4">
+            <input type="radio" name="tabs" id="tab5"> <input type="radio" name="tabs" id="tab6"> <input type="radio" name="tabs" id="tab7"> <input type="radio" name="tabs" id="tab3">
+
+            <div class="tab-content-wrapper">
+                
+                <section class="tab-content" id="content1">
+                    <div class="calendar-header">
+                        <button class="nav-btn" id="prevMonthBtn">&lt; Prev</button>
+                        <h2 id="monthYear"></h2>
+                        <button class="nav-btn" id="nextMonthBtn">Next &gt;</button>
+                    </div>
+                    <div class="calendar-grid" id="dayHeaders"></div>
+                    <div class="calendar-grid" id="calendarGrid"></div>
+                    <div class="search-container">
+                        <input type="text" id="searchInput" placeholder="Search event notes...">
+                        <div id="searchResults"></div>
+                    </div>
+                </section>
+
+                <section class="tab-content" id="content2">
+                    <h2>All Notices</h2>
+                    <ul class="notice-list" id="noticeList"></ul>
+                </section>
+                
+                <section class="tab-content" id="content4">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2>General Notes</h2>
+                        <button class="btn btn-primary" id="addNoteBtn">
+                            +<span class="btn-full-text"> Add New Note</span>
+                        </button>
+                    </div>
+                    <div id="notesContainer"></div>
+                </section>
+
+                <section class="tab-content" id="content5">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2>To-Do List</h2>
+                        <button class="btn btn-primary" id="addTodoBtn">
+                            +<span class="btn-full-text"> Add To-Do</span>
+                        </button>
+                    </div>
+                    <div id="todoListContainer">
+                        <div style="flex: 1;">
+                            <h3>Pending</h3>
+                            <ul class="todo-list" id="pendingList"></ul>
+                        </div>
+                        <div style="flex: 1;">
+                            <h3>Completed</h3>
+                            <ul class="todo-list" id="completedList"></ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="tab-content" id="content6">
+                    <div class="expense-header">
+                        <h2>Expense Tracker</h2>
+                        <button class="btn btn-expense" id="addExpenseBtn">
+                            +<span class="btn-full-text"> Add New Expense</span>
+                        </button>
+                    </div>
+                    <h3>Recent Expenses</h3>
+                    <ul id="expenseList"></ul>
+                </section>
+                
+                <section class="tab-content" id="content7">
+                    <h2>Expense Report</h2>
+                    <div class="report-section">
+                        <h3>By Day</h3>
+                        <div id="dailyExpenseReport"></div>
+                    </div>
+                    <div class="report-section">
+                        <h3>By Month</h3>
+                        <div id="monthlyExpenseReport"></div>
+                    </div>
+                </section>
+
+                <section class="tab-content" id="content3">
+                    <h2>Data Management</h2>
+                    <div class="data-section">
+                        <h3>Export Data</h3>
+                        <p>Click the button to download a backup <code>.json</code> file of all your **events, notes, to-dos, and expenses**.</p>
+                        <button class="btn btn-primary" id="exportBtn">Download Backup</button>
+                    </div>
+                    <div class="data-section">
+                        <h3>Import Data</h3>
+                        <p>Select a <code>.json</code> backup file to import. <strong>This will overwrite all current data.</strong></p>
+                        <input type="file" id="importFile" accept="application/json">
+                    </div>
+                    <hr style="margin: 30px 0;">
+                    <div class="data-section">
+                        <h3>Danger Zone</h3>
+                        <p>This will permanently delete all data. This action cannot be undone.</p>
+                        <button class="btn btn-danger" id="clearAllBtn">
+                            🗑️<span class="btn-full-text"> Clear All Data</span>
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <nav class="tab-nav">
+                <label for="tab1">📅 Calendar</label>
+                <label for="tab2">📝 Notices</label>
+                <label for="tab4">🗒️ Notes</label>
+                <label for="tab5">✅ To-Do</label>
+                <label for="tab6">💸 Expenses</label>
+                <label for="tab7">📊 Report</label>
+                <label for="tab3">⚙️ Data</label>
+            </nav>
+        </div>
+    </div>
+
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add/Edit Note</h2>
+                <button class="close-btn" id="closeEventModalBtn">&times;</button>
+            </div>
+            <form id="eventForm">
+                <div class="modal-body">
+                    <input type="hidden" id="eventId">
+                    <div class="form-group">
+                        <label for="eventDate">Date</label>
+                        <input type="date" id="eventDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="shortDesc">Short Description (Title)</label>
+                        <input type="text" id="shortDesc" required maxlength="50" placeholder="e.g., Mom's Birthday">
+                    </div>
+                    <div class="form-group">
+                        <label for="longDesc">Long Description (Details)</label>
+                        <textarea id="longDesc" placeholder="Add more details here..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="recurring">Recurring</label>
+                        <select id="recurring">
+                            <option value="none">None</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger btn-delete" id="deleteBtn">
+                        🗑️<span class="btn-full-text"> Delete</span>
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-save">
+                        S<span class="btn-full-text">ave</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="noteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="noteModalTitle">Add Note</h2>
+                <button class="close-btn" id="closeNoteModalBtn">&times;</button>
+            </div>
+            <form id="noteForm">
+                <div class="modal-body">
+                    <input type="hidden" id="noteId">
+                    <div class="form-group">
+                        <label for="noteTitle">Note Title</label>
+                        <input type="text" id="noteTitle" required maxlength="100" placeholder="e.g., Shopping List">
+                    </div>
+                    <div class="form-group">
+                        <label for="noteContent">Note Content</label>
+                        <textarea id="noteContent" placeholder="- Milk..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger btn-delete" id="noteDeleteBtn">
+                        🗑️<span class="btn-full-text"> Delete</span>
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-save">
+                        S<span class="btn-full-text">ave</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="expenseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="expenseModalTitle">Add Expense</h2>
+                <button class="close-btn" id="closeExpenseModalBtn">&times;</button>
+            </div>
+            <form id="expenseForm">
+                <div class="modal-body">
+                    <input type="hidden" id="expenseId">
+                    <div class="form-group">
+                        <label for="expenseDate">Date</label>
+                        <input type="date" id="expenseDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="expenseItem">Item / Description</label>
+                        <input type="text" id="expenseItem" placeholder="e.g., Groceries" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="expenseCost">Cost (₹)</label>
+                        <input type="number" id="expenseCost" placeholder="e.g., 1500" step="0.01" min="0" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger btn-delete" id="expenseDeleteBtn">
+                        🗑️<span class="btn-full-text"> Delete</span>
+                    </button>
+                    <button type="submit" class="btn btn-expense btn-save">
+                        S<span class="btn-full-text">ave Expense</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE ---
+            let currentDate = new Date();
+            let events = [];
+            let notes = [];
+            let todos = [];
+            let expenses = [];
+            let isMobile = window.innerWidth <= 768;
+
+            // --- SELECTORS ---
+            const calendarGrid = document.getElementById('calendarGrid');
+            const dayHeadersGrid = document.getElementById('dayHeaders');
+            const monthYearEl = document.getElementById('monthYear');
+            const prevMonthBtn = document.getElementById('prevMonthBtn');
+            const nextMonthBtn = document.getElementById('nextMonthBtn');
+            
+            // Event Modal
+            const eventModal = document.getElementById('eventModal');
+            const closeEventModalBtn = document.getElementById('closeEventModalBtn');
+            const eventForm = document.getElementById('eventForm');
+            const modalTitle = document.getElementById('modalTitle');
+            const eventIdInput = document.getElementById('eventId');
+            const eventDateInput = document.getElementById('eventDate');
+            const shortDescInput = document.getElementById('shortDesc');
+            const longDescInput = document.getElementById('longDesc');
+            const recurringInput = document.getElementById('recurring');
+            const deleteBtn = document.getElementById('deleteBtn');
+
+            // Notice List
+            const noticeList = document.getElementById('noticeList');
+            
+            // Notes Tab
+            const addNoteBtn = document.getElementById('addNoteBtn');
+            const notesContainer = document.getElementById('notesContainer');
+            const noteModal = document.getElementById('noteModal');
+            const closeNoteModalBtn = document.getElementById('closeNoteModalBtn');
+            const noteForm = document.getElementById('noteForm');
+            const noteModalTitle = document.getElementById('noteModalTitle');
+            const noteIdInput = document.getElementById('noteId');
+            const noteTitleInput = document.getElementById('noteTitle');
+            const noteContentInput = document.getElementById('noteContent');
+            const noteDeleteBtn = document.getElementById('noteDeleteBtn');
+            
+            // To-Do Tab
+            const addTodoBtn = document.getElementById('addTodoBtn');
+            const pendingList = document.getElementById('pendingList');
+            const completedList = document.getElementById('completedList');
+            
+            // Expense Tab
+            const addExpenseBtn = document.getElementById('addExpenseBtn');
+            const expenseList = document.getElementById('expenseList');
+            const expenseModal = document.getElementById('expenseModal');
+            const closeExpenseModalBtn = document.getElementById('closeExpenseModalBtn');
+            const expenseModalTitle = document.getElementById('expenseModalTitle');
+            const expenseForm = document.getElementById('expenseForm');
+            const expenseIdInput = document.getElementById('expenseId');
+            const expenseDateInput = document.getElementById('expenseDate');
+            const expenseItemInput = document.getElementById('expenseItem');
+            const expenseCostInput = document.getElementById('expenseCost');
+            const expenseDeleteBtn = document.getElementById('expenseDeleteBtn');
+            
+            // Expense Report Tab
+            const dailyExpenseReport = document.getElementById('dailyExpenseReport');
+            const monthlyExpenseReport = document.getElementById('monthlyExpenseReport');
+
+            // Data Tab
+            const exportBtn = document.getElementById('exportBtn');
+            const importFile = document.getElementById('importFile');
+            const clearAllBtn = document.getElementById('clearAllBtn');
+            
+            // Search
+            const searchInput = document.getElementById('searchInput');
+            const searchResults = document.getElementById('searchResults');
+
+            // --- CONSTANTS ---
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+            // --- FUNCTIONS ---
+
+            /**
+             * Initializes the application
+             */
+            function init() {
+                loadData();
+                
+                prevMonthBtn.addEventListener('click', () => changeMonth(-1));
+                nextMonthBtn.addEventListener('click', () => changeMonth(1));
+                
+                closeEventModalBtn.addEventListener('click', closeEventModal);
+                eventForm.addEventListener('submit', saveEvent);
+                deleteBtn.addEventListener('click', deleteEvent);
+                
+                addNoteBtn.addEventListener('click', () => openNoteModal());
+                closeNoteModalBtn.addEventListener('click', closeNoteModal);
+                noteForm.addEventListener('submit', saveNote);
+                noteDeleteBtn.addEventListener('click', deleteNote);
+                
+                addTodoBtn.addEventListener('click', addTodo);
+                
+                // Expense Listeners
+                addExpenseBtn.addEventListener('click', () => openExpenseModal());
+                closeExpenseModalBtn.addEventListener('click', closeExpenseModal);
+                expenseForm.addEventListener('submit', saveExpense);
+                expenseDeleteBtn.addEventListener('click', deleteExpenseFromModal);
+
+
+                exportBtn.addEventListener('click', exportData);
+                importFile.addEventListener('change', importData);
+                clearAllBtn.addEventListener('click', clearAllData);
+                
+                searchInput.addEventListener('keyup', renderSearchResults);
+                
+                window.addEventListener('resize', () => {
+                    const mobileCheck = window.innerWidth <= 768;
+                    if (isMobile !== mobileCheck) {
+                        isMobile = mobileCheck;
+                        renderCalendar(); // Only re-render if state changes
+                    }
+                });
+                
+                // Render all components
+                renderDayHeaders();
+                renderCalendar();
+                renderNotes();
+                renderToDos();
+                renderExpenseList();
+                renderExpenseReports();
+            }
+
+            // --- Calendar Functions ---
+
+            function renderDayHeaders() {
+                dayHeadersGrid.innerHTML = '';
+                dayNames.forEach(day => {
+                    const headerCell = document.createElement('div');
+                    headerCell.classList.add('calendar-header-cell');
+                    headerCell.textContent = day;
+                    dayHeadersGrid.appendChild(headerCell);
+                });
+            }
+
+            function renderCalendar() {
+                calendarGrid.innerHTML = '';
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+
+                const monthFormat = isMobile ? 'short' : 'long';
+                monthYearEl.textContent = `${currentDate.toLocaleString('default', { month: monthFormat })} ${year}`;
+
+                const firstDayOfMonth = new Date(year, month, 1);
+                const lastDayOfMonth = new Date(year, month + 1, 0);
+                const firstDayOfWeek = firstDayOfMonth.getDay();
+                const lastDate = lastDayOfMonth.getDate();
+
+                for (let i = 0; i < firstDayOfWeek; i++) {
+                    calendarGrid.appendChild(createDayCell(null));
+                }
+                for (let day = 1; day <= lastDate; day++) {
+                    const date = new Date(year, month, day);
+                    calendarGrid.appendChild(createDayCell(date));
+                }
+                
+                renderNoticeList();
+                renderSearchResults();
+            }
+
+            function createDayCell(date) {
+                const dayCell = document.createElement('div');
+                dayCell.classList.add('calendar-day');
+
+                if (!date) {
+                    dayCell.classList.add('empty');
+                    return dayCell;
+                }
+                
+                const ymd = toYYYYMMDD(date);
+                dayCell.dataset.date = ymd;
+
+                const dayNumber = document.createElement('div');
+                dayNumber.classList.add('day-number');
+                dayNumber.textContent = date.getDate();
+                dayCell.appendChild(dayNumber);
+
+                if (ymd === toYYYYMMDD(new Date())) {
+                    dayCell.classList.add('today');
+                }
+
+                const eventsForDay = getEventsForDate(date);
+                eventsForDay.forEach(event => {
+                    const eventMarker = document.createElement('div');
+                    eventMarker.classList.add('event-marker');
+                    eventMarker.classList.add(event.recurring === 'none' ? 'normal' : event.recurring);
+                    eventMarker.textContent = event.shortDesc;
+                    eventMarker.dataset.eventId = event.id;
+                    
+                    eventMarker.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openEventModal(ymd, event.id);
+                    });
+                    dayCell.appendChild(eventMarker);
+                });
+
+                dayCell.addEventListener('click', () => {
+                    openEventModal(ymd);
+                });
+
+                return dayCell;
+            }
+            
+            function getEventsForDate(date) {
+                const ymd = toYYYYMMDD(date);
+                const day = String(date.getDate()).padStart(2, '0');
+                const monthDay = ymd.substring(5); // "MM-DD"
+                const dayOfWeek = date.getDay(); // 0 (Sun) - 6 (Sat)
+                
+                return events.filter(event => {
+                    if (event.date === ymd) return true;
+                    const eventDateObj = new Date(event.date + 'T12:00:00');
+                    if (event.recurring === 'weekly' && eventDateObj.getDay() === dayOfWeek) return true;
+                    if (event.recurring === 'monthly' && event.date.split('-')[2] === day) return true;
+                    if (event.recurring === 'yearly' && event.date.substring(5) === monthDay) return true;
+                    return false;
+                }).sort((a,b) => a.shortDesc.localeCompare(b.shortDesc));
+            }
+
+            function changeMonth(delta) {
+                currentDate.setMonth(currentDate.getMonth() + delta);
+                renderCalendar();
+            }
+
+            // --- Notice List & Search Functions ---
+
+            function renderNoticeList() {
+                noticeList.innerHTML = '';
+                
+                if (events.length === 0) {
+                    noticeList.innerHTML = '<p>No notices found. Add one from the calendar!</p>';
+                    return;
+                }
+                
+                const sortedEvents = [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                sortedEvents.forEach(event => {
+                    const li = document.createElement('li');
+                    li.classList.add('notice-item');
+                    let recurringText = event.recurring !== 'none' ? `(Recurs ${event.recurring})` : '';
+                    
+                    li.innerHTML = `
+                        <div class="notice-item-details">
+                            <strong>${event.shortDesc}</strong>
+                            <span class="date">${event.date}</span>
+                            <span class="recurring">${recurringText}</span>
+                            <p class="long-desc">${event.longDesc || ''}</p>
+                        </div>
+                        <div class="notice-item-actions">
+                            <button class="btn btn-warning btn-edit" data-id="${event.id}">
+                                E<span class="btn-full-text">dit</span>
+                            </button>
+                            <button class="btn btn-danger btn-delete" data-id="${event.id}">
+                                🗑️<span class="btn-full-text"> Delete</span>
+                            </button>
+                        </div>
+                    `;
+                    noticeList.appendChild(li);
+                });
+                
+                noticeList.querySelectorAll('.btn-edit').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = e.target.closest('button').dataset.id;
+                        const event = events.find(ev => ev.id === id);
+                        if (event) {
+                            document.getElementById('tab1').checked = true;
+                            openEventModal(event.date, event.id);
+                        }
+                    });
+                });
+                
+                noticeList.querySelectorAll('.btn-delete').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = e.target.closest('button').dataset.id;
+                        if (confirm('Are you sure you want to delete this event?')) {
+                            events = events.filter(ev => ev.id !== id);
+                            saveData();
+                            renderCalendar();
+                        }
+                    });
+                });
+            }
+            
+            function renderSearchResults() {
+                const query = searchInput.value.toLowerCase();
+                searchResults.innerHTML = '';
+                
+                if (query.length < 2) return;
+                
+                const results = events.filter(event => 
+                    event.shortDesc.toLowerCase().includes(query) ||
+                    (event.longDesc && event.longDesc.toLowerCase().includes(query))
+                );
+                
+                if (results.length === 0) {
+                    searchResults.innerHTML = '<div class="search-result-item">No results found.</div>';
+                    return;
+                }
+                
+                results.forEach(event => {
+                    const item = document.createElement('div');
+                    item.classList.add('search-result-item');
+                    const desc = event.longDesc || '';
+                    item.innerHTML = `<strong>${event.shortDesc}</strong> (${event.date})<br>${desc.substring(0, 50)}...`;
+                    
+                    item.addEventListener('click', () => {
+                        currentDate = new Date(event.date + 'T12:00:00'); 
+                        document.getElementById('tab1').checked = true;
+                        renderCalendar();
+                        setTimeout(() => openEventModal(event.date, event.id), 100); 
+                    });
+                    searchResults.appendChild(item);
+                });
+            }
+
+            // --- Event Modal Functions ---
+
+            function openEventModal(date, id = null) {
+                eventForm.reset();
+                if (id) {
+                    const event = events.find(e => e.id === id);
+                    if (!event) return;
+                    modalTitle.textContent = 'Edit Note';
+                    eventIdInput.value = event.id;
+                    eventDateInput.value = event.date;
+                    shortDescInput.value = event.shortDesc;
+                    longDescInput.value = event.longDesc;
+                    recurringInput.value = event.recurring;
+                    deleteBtn.style.display = 'block';
+                } else {
+                    modalTitle.textContent = 'Add Note';
+                    eventIdInput.value = '';
+                    eventDateInput.value = date;
+                    deleteBtn.style.display = 'none';
+                }
+                eventModal.classList.add('show');
+            }
+
+            function closeEventModal() {
+                eventModal.classList.remove('show');
+            }
+
+            function saveEvent(e) {
+                e.preventDefault();
+                const id = eventIdInput.value;
+                const eventData = {
+                    date: eventDateInput.value,
+                    shortDesc: shortDescInput.value,
+                    longDesc: longDescInput.value,
+                    recurring: recurringInput.value
+                };
+                
+                if (id) {
+                    events = events.map(event => event.id === id ? { ...event, ...eventData } : event);
+                } else {
+                    eventData.id = Date.now().toString();
+                    events.push(eventData);
+                }
+                saveData();
+                renderCalendar();
+                closeEventModal();
+            }
+
+            function deleteEvent() {
+                const id = eventIdInput.value;
+                if (!id) return;
+                
+                if (confirm('Are you sure you want to delete this event?')) {
+                    events = events.filter(event => event.id !== id);
+                    saveData();
+                    renderCalendar();
+                    closeEventModal();
+                }
+            }
+            
+            // --- Note Tab Functions ---
+            
+            function renderNotes() {
+                notesContainer.innerHTML = '';
+                if (notes.length === 0) {
+                    notesContainer.innerHTML = '<p>No notes found. Add one!</p>';
+                    return;
+                }
+                
+                const sortedNotes = [...notes].sort((a, b) => b.id - a.id);
+                
+                sortedNotes.forEach(note => {
+                    const noteCard = document.createElement('div');
+                    noteCard.classList.add('note-card');
+                    
+                    const title = document.createElement('h3');
+                    title.textContent = note.title;
+                    
+                    const content = document.createElement('p');
+                    content.textContent = note.content;
+                    
+                    noteCard.innerHTML = `
+                        <div>
+                            ${title.outerHTML}
+                            ${content.outerHTML}
+                        </div>
+                        <div class="note-card-footer">
+                            <button class="btn btn-warning btn-edit" data-id="${note.id}">
+                                E<span class="btn-full-text">dit</span>
+                            </button>
+                        </div>
+                    `;
+                    
+                    noteCard.querySelector('.btn-edit').addEventListener('click', (e) => {
+                        openNoteModal(e.target.closest('button').dataset.id);
+                    });
+                    
+                    notesContainer.appendChild(noteCard);
+                });
+            }
+
+            function openNoteModal(id = null) {
+                noteForm.reset();
+                if (id) {
+                    const note = notes.find(n => n.id === id);
+                    if (!note) return;
+                    
+                    noteModalTitle.textContent = 'Edit Note';
+                    noteIdInput.value = note.id;
+                    noteTitleInput.value = note.title;
+                    noteContentInput.value = note.content;
+                    noteDeleteBtn.style.display = 'block';
+                } else {
+                    noteModalTitle.textContent = 'Add Note';
+                    noteIdInput.value = '';
+                    noteDeleteBtn.style.display = 'none';
+                }
+                noteModal.classList.add('show');
+            }
+            
+            function closeNoteModal() {
+                noteModal.classList.remove('show');
+            }
+            
+            function saveNote(e) {
+                e.preventDefault();
+                const id = noteIdInput.value;
+                const title = noteTitleInput.value;
+                const content = noteContentInput.value;
+                
+                if (id) {
+                    notes = notes.map(note => 
+                        note.id === id ? { ...note, title, content, id: note.id } : note
+                    );
+                } else {
+                    const newNote = {
+                        id: Date.now().toString(),
+                        title,
+                        content
+                    };
+                    notes.push(newNote);
+                }
+                
+                saveData();
+                renderNotes();
+                closeNoteModal();
+            }
+            
+            function deleteNote() {
+                const id = noteIdInput.value;
+                if (!id) return;
+                
+                if (confirm('Are you sure you want to delete this note?')) {
+                    notes = notes.filter(note => note.id !== id);
+                    saveData();
+                    renderNotes();
+                    closeNoteModal();
+                }
+            }
+
+            // --- To-Do List Functions ---
+            
+            function renderToDos() {
+                pendingList.innerHTML = '';
+                completedList.innerHTML = '';
+                
+                const sortedTodos = [...todos].sort((a, b) => b.id - a.id);
+
+                sortedTodos.forEach(todo => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <input type="checkbox" class="todo-check" data-id="${todo.id}" ${todo.completed ? 'checked' : ''}>
+                        <span class="todo-text ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">${todo.text}</span>
+                        <button class="todo-delete-btn" data-id="${todo.id}">×</button>
+                    `;
+                    
+                    if (todo.completed) {
+                        completedList.appendChild(li);
+                    } else {
+                        pendingList.appendChild(li);
+                    }
+                });
+                
+                // Add Listeners
+                document.querySelectorAll('.todo-check').forEach(check => {
+                    check.addEventListener('change', toggleTodo);
+                });
+                document.querySelectorAll('.todo-text').forEach(text => {
+                    text.addEventListener('click', toggleTodo); // Click text to check
+                });
+                document.querySelectorAll('.todo-delete-btn').forEach(btn => {
+                    btn.addEventListener('click', deleteTodo);
+                });
+            }
+            
+            function addTodo() {
+                const text = prompt('New to-do item:');
+                if (text && text.trim().length > 0) {
+                    todos.push({
+                        id: Date.now().toString(),
+                        text: text.trim(),
+                        completed: false
+                    });
+                    saveData();
+                    renderToDos();
+                }
+            }
+            
+            function toggleTodo(e) {
+                const id = e.target.dataset.id;
+                const todo = todos.find(t => t.id === id);
+                if (todo) {
+                    todo.completed = !todo.completed;
+                    saveData();
+                    renderToDos();
+                }
+            }
+            
+            function deleteTodo(e) {
+                const id = e.target.closest('button').dataset.id;
+                if (confirm('Delete this to-do item?')) {
+                    todos = todos.filter(t => t.id !== id);
+                    saveData();
+                    renderToDos();
+                }
+            }
+            
+            // --- Expense Functions ---
+            
+            function openExpenseModal(id = null) {
+                expenseForm.reset();
+                if (id) {
+                    const ex = expenses.find(e => e.id === id);
+                    if (ex) {
+                        expenseModalTitle.textContent = 'Edit Expense';
+                        expenseIdInput.value = ex.id;
+                        expenseDateInput.value = ex.date;
+                        expenseItemInput.value = ex.item;
+                        expenseCostInput.value = ex.cost;
+                        expenseDeleteBtn.style.display = 'block';
+                    }
+                } else {
+                    expenseModalTitle.textContent = 'Add Expense';
+                    expenseIdInput.value = '';
+                    expenseDateInput.value = toYYYYMMDD(new Date()); // Default to today
+                    expenseDeleteBtn.style.display = 'none';
+                }
+                expenseModal.classList.add('show');
+            }
+
+            function closeExpenseModal() {
+                expenseModal.classList.remove('show');
+            }
+
+            function saveExpense(e) {
+                e.preventDefault();
+                const id = expenseIdInput.value;
+                const expenseData = {
+                    id: id || Date.now().toString(),
+                    date: expenseDateInput.value,
+                    item: expenseItemInput.value,
+                    cost: parseFloat(expenseCostInput.value)
+                };
+
+                if (id) {
+                    expenses = expenses.map(ex => ex.id === id ? expenseData : ex);
+                } else {
+                    expenses.push(expenseData);
+                }
+                
+                saveData();
+                renderExpenseList();
+                renderExpenseReports();
+                closeExpenseModal();
+            }
+            
+            function deleteExpenseFromModal() {
+                const id = expenseIdInput.value;
+                if (!id) return;
+                
+                if (confirm('Are you sure you want to delete this expense?')) {
+                    expenses = expenses.filter(ex => ex.id !== id);
+                    saveData();
+                    renderExpenseList();
+                    renderExpenseReports();
+                    closeExpenseModal();
+                }
+            }
+
+            function renderExpenseList() {
+                expenseList.innerHTML = '';
+                const sortedExpenses = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                sortedExpenses.slice(0, 20).forEach(ex => { // Show last 20
+                    const li = document.createElement('li');
+                    li.classList.add('expense-item');
+                    li.innerHTML = `
+                        <span class="date">${ex.date}</span>
+                        <span class="item">${ex.item}</span>
+                        <span class="cost">₹${ex.cost.toFixed(2)}</span>
+                        <span class="expense-item-actions">
+                            <button class="btn btn-warning btn-edit" data-id="${ex.id}">
+                                E<span class="btn-full-text">dit</span>
+                            </button>
+                            <button class="btn btn-danger btn-delete" data-id="${ex.id}">
+                                🗑️<span class="btn-full-text"></span>
+                            </button>
+                        </span>
+                    `;
+                    
+                    li.querySelector('.btn-edit').addEventListener('click', (e) => {
+                        openExpenseModal(e.target.closest('button').dataset.id);
+                    });
+                    li.querySelector('.btn-delete').addEventListener('click', (e) => {
+                        deleteExpenseFromList(e.target.closest('button').dataset.id);
+                    });
+                    
+                    expenseList.appendChild(li);
+                });
+            }
+            
+            function deleteExpenseFromList(id) {
+                if (confirm('Are you sure you want to delete this expense?')) {
+                    expenses = expenses.filter(ex => ex.id !== id);
+                    saveData();
+                    renderExpenseList();
+                    renderExpenseReports();
+                }
+            }
+            
+            function renderExpenseReports() {
+                // 1. Daily Report
+                const dailyTotals = expenses.reduce((acc, ex) => {
+                    const date = ex.date;
+                    acc[date] = (acc[date] || 0) + ex.cost;
+                    return acc;
+                }, {});
+                
+                const sortedDaily = Object.keys(dailyTotals).sort((a, b) => new Date(b) - new Date(a));
+                dailyExpenseReport.innerHTML = '';
+                if (sortedDaily.length === 0) {
+                    dailyExpenseReport.innerHTML = '<p>No expenses logged.</p>';
+                }
+                sortedDaily.forEach(date => {
+                    dailyExpenseReport.innerHTML += `
+                        <div class="report-item">
+                            <span class="label">${date}</span>
+                            <span class="total">₹${dailyTotals[date].toFixed(2)}</span>
+                        </div>
+                    `;
+                });
+
+                // 2. Monthly Report
+                const monthlyTotals = expenses.reduce((acc, ex) => {
+                    const month = ex.date.substring(0, 7); // "YYYY-MM"
+                    acc[month] = (acc[month] || 0) + ex.cost;
+                    return acc;
+                }, {});
+
+                const sortedMonthly = Object.keys(monthlyTotals).sort().reverse();
+                monthlyExpenseReport.innerHTML = '';
+                if (sortedMonthly.length === 0) {
+                    monthlyExpenseReport.innerHTML = '<p>No expenses logged.</p>';
+                }
+                sortedMonthly.forEach(month => {
+                    monthlyExpenseReport.innerHTML += `
+                        <div class="report-item">
+                            <span class="label">${month}</span>
+                            <span class="total">₹${monthlyTotals[month].toFixed(2)}</span>
+                        </div>
+                    `;
+                });
+            }
+
+
+            // --- Data & Local Storage ---
+
+            function saveData() {
+                const data = {
+                    events: events,
+                    notes: notes,
+                    todos: todos,
+                    expenses: expenses
+                };
+                localStorage.setItem('familyCalendarData', JSON.stringify(data));
+            }
+
+            function loadData() {
+                const storedData = localStorage.getItem('familyCalendarData');
+                if (storedData) {
+                    const data = JSON.parse(storedData);
+                    events = data.events || [];
+                    notes = data.notes || [];
+                    todos = data.todos || [];
+                    expenses = data.expenses || [];
+                } else {
+                    events = [];
+                    notes = [];
+                    todos = [];
+                    expenses = [];
+                }
+            }
+            
+            function exportData() {
+                const dataToExport = {
+                    events: events,
+                    notes: notes,
+                    todos: todos,
+                    expenses: expenses
+                };
+                const dataStr = JSON.stringify(dataToExport, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'family-calendar-backup.json';
+                document.body.appendChild(a);
+                a.click();
+                
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert('Backup file downloading!');
+            }
+            
+            function importData(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const dataToImport = event.target.result;
+                        if (!confirm('This will OVERWRITE all current data. Are you sure?')) {
+                            importFile.value = null;
+                            return;
+                        }
+                        
+                        const parsedData = JSON.parse(dataToImport);
+                        
+                        if (typeof parsedData === 'object' && parsedData !== null) {
+                            events = parsedData.events || [];
+                            notes = parsedData.notes || [];
+                            todos = parsedData.todos || [];
+                            expenses = parsedData.expenses || [];
+                            
+                            saveData();
+                            renderCalendar();
+                            renderNotes();
+                            renderToDos();
+                            renderExpenseList();
+                            renderExpenseReports();
+                            alert('Data imported successfully!');
+                        } else {
+                            alert('Import failed. File does not contain valid data.');
+                        }
+                    } catch (error) {
+                        alert('Import failed. Invalid JSON file. ' + error.message);
+                    }
+                    importFile.value = null;
+                };
+                
+                reader.onerror = () => {
+                    alert('Error reading file.');
+                    importFile.value = null;
+                };
+                
+                reader.readAsText(file);
+            }
+
+            function clearAllData() {
+                if (confirm('DANGER! This will permanently delete ALL data. Are you sure?')) {
+                    events = [];
+                    notes = [];
+                    todos = [];
+                    expenses = [];
+                    saveData();
+                    renderCalendar();
+                    renderNotes();
+                    renderToDos();
+                    renderExpenseList();
+                    renderExpenseReports();
+                    alert('All data has been cleared.');
+                }
+            }
+
+            // --- UTILITY ---
+
+            function toYYYYMMDD(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            // --- START ---
+            init();
+        });
+    </script>
+
+</body>
+</html>
